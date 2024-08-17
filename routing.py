@@ -217,5 +217,3 @@ folium.PolyLine(route_coords, color="red", weight=2.5, opacity=1).add_to(m)
 # Save the map to an HTML file and display it
 m.save('mannheim_final_route.html')
 
-# If you are using a Jupyter Notebook, you can display the map directly
-m
