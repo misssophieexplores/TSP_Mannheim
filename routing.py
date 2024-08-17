@@ -1,64 +1,60 @@
 import numpy as np
+import folium
+from geopy.geocoders import Nominatim
 
 # Cache to store precomputed coordinates for locations to avoid recalculating them multiple times
 coordinates_cache = {}
 
 def location_to_coordinates(location):
     """
-    Converts a location in the grid (e.g., 'A1', 'B6', etc.) to grid coordinates (x, y).
+    Converts a location in the grid (e.g., 'A1', 'B6', etc.) to latitude and longitude using Nominatim API.
     Uses a cache to store and retrieve precomputed coordinates for efficiency.
     
     Parameters:
     location (str): The location in the format 'LetterNumber' (e.g., 'A1').
 
     Returns:
-    tuple: A tuple representing the (x, y) coordinates on the grid.
+    tuple: A tuple representing the (latitude, longitude) coordinates on the map.
     """
 
     # Check if the location's coordinates are already in the cache
     if location in coordinates_cache:
         return coordinates_cache[location]
     
-    # Maps for converting letters to x-coordinates on the left and right of the castle
-    letter_to_index_left = {letter: index for index, letter in enumerate("ABCDEFGHIK")}  # Skipping J
-    letter_to_index_right = {letter: index for index, letter in enumerate("LMNOPQRSTU")}
-    
-    # Extract the letter and number from the location (e.g., 'A1' -> letter='A', number=1)
-    letter, number = location[0], int(location[1])
-    
-    # Determine if the location is on the left or right of the castle based on the letter
-    if letter in letter_to_index_left:
-        x = letter_to_index_left[letter]
-        y = 7 - number  # Reverse the order of numbers to match grid orientation
-    elif letter in letter_to_index_right:
-        x = letter_to_index_right[letter]  # x-coordinates for the right side of the grid
-        y = 6 + number  # Adjust the y-coordinate for the right side
+    # Initialize Nominatim API
+    geolocator = Nominatim(user_agent="mannheim-squares")
+
+    # Append "Mannheim" to the location for accurate geocoding
+    location_query = f"{location} Mannheim"
+
+    # Fetch coordinates from Nominatim
+    location_data = geolocator.geocode(location_query)
+    if location_data:
+        coordinates_cache[location] = (location_data.latitude, location_data.longitude)
     else:
-        raise ValueError("Invalid location")  # Raise an error if the location is invalid
+        raise ValueError(f"Could not find location {location_query}")
     
-    # Store the calculated coordinates in the cache
-    coordinates_cache[location] = (x, y)
-    
-    return x, y
+    return coordinates_cache[location]
 
 def calculate_manhattan_distance(location1, location2):
     """
     Calculates the Manhattan distance between two locations on the grid.
+    Note: For geographical locations, this is just a placeholder.
 
     Parameters:
     location1 (str): The first location (e.g., 'A1').
     location2 (str): The second location (e.g., 'B6').
 
     Returns:
-    int: The Manhattan distance between the two locations.
+    float: The Manhattan distance between the two locations.
     """
 
-    # Convert the locations to grid coordinates
-    x1, y1 = location_to_coordinates(location1)
-    x2, y2 = location_to_coordinates(location2)
+    # Convert the locations to grid coordinates (lat/long)
+    lat1, lon1 = location_to_coordinates(location1)
+    lat2, lon2 = location_to_coordinates(location2)
     
-    # Calculate the Manhattan distance (sum of absolute differences in x and y)
-    distance = abs(x1 - x2) + abs(y1 - y2)
+    # Calculate the Manhattan distance (using lat/lon for simplicity)
+    distance = abs(lat1 - lat2) + abs(lon1 - lon2)
     
     return distance
 
@@ -203,3 +199,23 @@ final_route_locations.append(final_route_locations[0])
 
 print("Final distance:", final_distance)
 print("Final route:", " -> ".join(final_route_locations))
+
+# Plotting the final route on OpenStreetMap using folium
+# Create a map centered around the first location
+map_center = location_to_coordinates(final_route_locations[0])
+m = folium.Map(location=map_center, zoom_start=15)
+
+# Add markers for each location in the route
+for loc in final_route_locations:
+    coords = location_to_coordinates(loc)
+    folium.Marker(location=coords, popup=loc, icon=folium.Icon(color='blue')).add_to(m)
+
+# Add the route as a PolyLine
+route_coords = [location_to_coordinates(loc) for loc in final_route_locations]
+folium.PolyLine(route_coords, color="red", weight=2.5, opacity=1).add_to(m)
+
+# Save the map to an HTML file and display it
+m.save('mannheim_final_route.html')
+
+# If you are using a Jupyter Notebook, you can display the map directly
+m
